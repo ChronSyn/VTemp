@@ -1,0 +1,10 @@
+{
+  "name": "VTemp",
+  "version": "0.0.1",
+  "description": "VTemp built upon nodejs",
+  "main": "application.config",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "Scott Pritchard"
+}

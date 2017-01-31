@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>VTemp 0.0.1</title>
+		<link rel="stylesheet" href="./libs/winstrap/css/winstrap.min.css?0.5.11">
+		
+		<link rel="stylesheet" href="./css/global.style.css">
+		<link rel="stylesheet" href="./css/component.style.css">
+		<script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
+		<script src="./libs/winstrap/js/vendor/jquery.min.js"></script>
+
+		
+		<script src="./libs/raphael-2.1.4.min.js"></script>
+		<script src="./libs/justgage.js"></script>
+	</head>
+	<body style="padding: 10px">
+		<!--
+		<h1>Oh, there you are!</h1>
+		<div class="type-sh2">VTemp is being rewritten from the ground up under a completely new framework.</div>
+		
+		<div class="type-p2">
+		Not only will it monitor GPU temperature*, it'll also provide the following;
+			<ul>
+				<li>More in-depth GPU statistics*</li>
+				<li>Integration with NVIDIA Geforce Experience*</li>
+				<li>In-depth system statistics & metrics</li>
+				<li>Notification on events</li>
+				<li>Ability to push data to a server</li>
+			</ul>
+		</div>
+		
+		<div class="type-p6">
+		* Only available on NVIDIA hardware
+		</div>
+		-->
+		<button onclick="generateTimerButton(); $(this).hide();">Generate button</button>
+		
+		<!--
+		<p class="type-p2">
+		We are using Node.js <script>document.write(process.versions.node)</script>,
+		Chromium <script>document.write(process.versions.chrome)</script>,
+		and Electron <script>document.write(process.versions.electron)</script>.
+		</p>
+		
+		
+		<br/>
+		<br/>
+		<button onclick="functions.winapi.sendNotification('Hello', 'World', function(){alert('Done!')});">Notification</button>
+		
+		<br/>
+		<br/>
+		<button onclick="functions.winapi.taskbar.flash();">Flash Taskbar</button>
+		
+		<br/>
+		<br/>
+		<button onclick="functions.winapi.taskbar.setProgress(0.5);">Taskbar progress 0.5</button>
+		
+		<br/>
+		<br/>
+		<button onclick="appendProgress()">Progress Add</button>
+		
+		<br/>
+		<br/>
+		<button onclick="appendButtons()">Button Add</button>
+		-->
+	</body>
+
+	<script src="./js/ui/components.ui.js"></script>
+	<script src="./js/modules/functions.js"></script>
+	<script>
+		const	{
+						remote,
+						BrowserWindow,
+						app,
+						ipcRenderer,
+		}	=	require('electron');
+		
+		const	{
+						Menu,
+						MenuItem
+		}	=	remote;
+		const contextMenu	=	new Menu();
+		
+		Math.seed = function(s) {
+			s = Math.sin(s) * 10000;
+			return s - Math.floor(s);
+		};
+		
+		function generateCanvas(cb){
+			var rnd			=	(new Date).getTime()	+	Math.random();
+			var _canvId	=	Math.seed(Math.sin(rnd * Math.random()) * Math.random());
+			var canvId		=	(_canvId - Math.floor(_canvId)).toString().replace(".", "");
+			return cb(canvId);
+		};
+		
+		function generateHolder(title, cb){
+			var elem	=	"";
+			
+			return cb(elem);			
+		};
+		
+		function generateInfoHeader(header, fields, cb){
+			var opts	=	{
+				header	:	header,
+				fields		:	fields
+			}
+			component.infoHeader(opts, function(elem){
+				$("body").append(elem);
+				return cb(elem);
+			});
+		};
+		
+		function generateGauge(blurb, maxVal, currVal, unit, target, cb){
+			var opts	=	{
+				lines			:	12,
+				angle			:	0,
+				lineWidth		:	0.33,
+				pointer		:	{
+					length		:	0.62,
+					strokeWidth	:	0.024,
+					color			:	"#000000",
+				},
+				highGood	:	true,
+				staticLabels	:	true,
+				strokeColor	:	"#e0e0e0",
+				maxValue	:	maxVal,
+				startValue	:	currVal,
+				animSpeed	:	10,
+				blurb			:	blurb,
+				unit			:	unit,
+				id				:	target,
+			};
+			
+			component.gaugeNew(opts, function(_gauge){
+				$("body").append(_gauge);
+				var g = new JustGage({
+					id				:	opts.id,
+					value			:	opts.startValue,
+					min			:	0,
+					max			:	opts.maxValue,
+					title			:	opts.blurb,
+					hideValue	:	true
+				});
+				//console.log(g);
+				return cb(g);
+			});
+		};
+
+		var dataSource;
+		var gauges	=	{};
+		ipcRenderer.on("windows.function.hardware.query", function(e, status, data){	
+			data	=	data[0];
+			
+			var info		=	{
+				driver		:	{
+					model	:	data.driver_model,
+					version	:	data.driver_version
+				},
+				name		:	data.name,
+				pstate	:	data.pstate,
+				vbios		:	data.vbios_version,
+				throttle	:	{
+					"Sync Boost"				:	data.clocks_throttle_reasons.sync_boost,
+					"GPU Idle"					:	data.clocks_throttle_reasons.gpu_idle,
+					"Hardware Slowdown"	:	data.clocks_throttle_reasons.hw_slowdown,
+					"Software Power Cap"	:	data.clocks_throttle_reasons.sw_power_cap
+				},
+			};
+			
+			var fan		=	data.fan["speed "];
+			var vram	=	data.memory;
+			var curr		=	data.clocks.current;
+			var max	=	data.clocks.max;
+			var temp	=	data.temperature;
+			var power	=	data.power;
+			var dials	=	{
+				GPU	:	{
+					clocks	:	{
+						graphics	:	{
+							blurb		:	"GPU Core Speed",
+							unit		:	"MHz",
+							//canvId	:	false,
+							current	:	curr["graphics "].MHz,
+							max		:	max["graphics "].MHz
+						},
+						memory	:	{
+							blurb		:	"GPU VRAM Speed",
+							unit		:	"MHz",
+							//canvId	:	false,
+							current	:	curr["memory "].MHz,
+							max		:	max["memory "].MHz
+						},
+						sm	:	{
+							blurb		:	"GPU SM Speed",
+							unit		:	"MHz",
+							//canvId	:	false,
+							current	:	curr["sm "].MHz,
+							max		:	max["sm "].MHz
+						}
+					},
+					memory	:	{
+						used	:	{
+							blurb		:	"GPU VRAM Usage",
+							unit		:	"MiB",
+							//canvId	:	false,
+							current	:	vram["used "].MiB,
+							max		:	vram["total "].MiB
+						},
+					},
+					temperature	:	{
+						temperature	:	{
+							blurb		:	"GPU Core Temperature",
+							unit		:	"°C",
+							//canvId	:	false,
+							current	:	temp["gpu"],
+							max		:	105
+						},
+					},
+					fan		:	{
+						blurb		:	"GPU Fan Speed",
+						unit		:	"%",
+						current	:	fan["%"],
+						max		:	100,
+					},
+					power	:	{
+							blurb		:	"GPU Power Draw",
+							unit		:	"W",
+							current	:	power["draw "].W,
+							max		:	power["limit "].W,
+					}
+				}
+			};
+			
+			if (typeof dataSource == "undefined"){ dataSource = {dials : dials, info : info}};
+			
+			
+			function* entries(obj) {
+			   for (let key of Object.keys(obj)) {
+				 yield [key, obj[key]];
+			   }
+			}
+			var parent	=	dataSource.info;
+			if ($("#gpuHeader").length == 0){
+				var elem	=	"<div id='gpuHeader' class='infoHeader'>"+
+										"<div class='h2'>"+parent.name+"</div>"+
+										"<div class='infoArea'>"+
+											"<strong>Driver Version: </strong>"+parent.driver.version+" <strong>VBIOS Version: </strong>"+parent.vbios+
+											"<div class='h4'>Throttles</div>";
+											for (let [field, value] of entries(parent.throttle)){
+												elem = elem + "<strong>"+field+": </strong>" + value + "</br>";
+											};
+						elem	=	elem + "</div></div>"
+											
+				$("body").append(elem);
+			};
+			
+			var parent	=	dataSource.dials.GPU.clocks;	
+			for (field in parent){
+				var elem	=	parent[field];
+				if (typeof elem.canvId == 'undefined' || !elem.canvId){
+					generateCanvas(function(_canvId){
+						elem.canvId = _canvId;
+						generateGauge(elem.blurb, parseInt(elem.max.replace(/\D/g,'')), parseInt(elem.current.replace(/\D/g,'')), elem.unit, _canvId, function(_gauge){
+							gauges[_canvId] = _gauge;
+						});
+					});
+				} else {
+					var identifier	=	elem["canvId"];
+					var thisGauge	=	gauges[identifier];
+					var thisfield		=	dials.GPU.clocks;
+					
+					var currVal		=	parseInt(thisfield[field].current.replace(/\D/g,''));
+					var maxVal	=	parseInt(thisfield[field].max.replace(/\D/g,''));
+
+					thisGauge.refresh(currVal, maxVal);
+					$("#"+identifier).find(".gauge-value").text(thisfield[field].current);
+				}
+			};
+			
+			var parent	=	dataSource.dials.GPU.temperature;	
+			var elem	=	parent;
+			if (typeof elem.canvId == 'undefined' || !elem.canvId){
+				generateCanvas(function(_canvId){
+					elem.canvId = _canvId;
+					generateGauge(elem.temperature.blurb, parseInt(elem.temperature.max), parseInt(elem.temperature.current), elem.temperature.unit, _canvId, function(_gauge){
+						gauges[_canvId] = _gauge;
+					});
+				});
+			} else {
+				var identifier	=	elem["canvId"];
+				var thisGauge	=	gauges[identifier];
+				var thisfield		=	dials.GPU.temperature.temperature;
+
+				var currVal		=	thisfield.current;
+				var maxVal	=	thisfield.max;
+
+				thisGauge.refresh(parseInt(currVal), maxVal);
+				$("#"+identifier).find(".gauge-value").text(thisfield.current + thisfield.unit);
+			}
+			
+			
+			var parent	=	dataSource.dials.GPU.fan;	
+			var elem	=	parent;
+			if (typeof elem.canvId == 'undefined' || !elem.canvId){
+				generateCanvas(function(_canvId){
+					elem.canvId = _canvId;
+					generateGauge(elem.blurb, parseInt(elem.max), parseInt(elem.current.replace(/\D/g,'')), elem.unit, _canvId, function(_gauge){
+						gauges[_canvId] = _gauge;
+					});
+				});
+			} else {
+				var identifier	=	elem["canvId"];
+				var thisGauge	=	gauges[identifier];
+				var thisfield		=	dials.GPU.fan;
+
+				var currVal		=	thisfield.current.replace(/\D/g,'');
+				var maxVal	=	thisfield.max;
+
+				thisGauge.refresh(parseInt(currVal), maxVal);
+				$("#"+identifier).find(".gauge-value").text(thisfield.current);
+			}
+			
+			
+			var parent	=	dataSource.dials.GPU.power;	
+			var elem	=	parent;
+			if (typeof elem.canvId == 'undefined' || !elem.canvId){
+				generateCanvas(function(_canvId){
+					elem.canvId = _canvId;
+					var currVal		=	Math.round(parseInt(elem.current.replace(/\D/g,''))/100);
+					var maxVal	=	Math.round(parseInt(elem.max.replace(/\D/g,''))/100);
+					generateGauge(elem.blurb, maxVal, currVal, elem.unit, _canvId, function(_gauge){
+						gauges[_canvId] = _gauge;
+					});
+				});
+			} else {
+				var identifier	=	elem["canvId"];
+				var thisGauge	=	gauges[identifier];
+				var thisfield		=	dials.GPU.power;
+
+				var currVal		=	Math.round(parseInt(elem.current.replace(/\D/g,''))/100);
+				var maxVal	=	Math.round(parseInt(elem.max.replace(/\D/g,''))/100);
+				//console.log(currVal);
+				thisGauge.refresh(Math.ceil(parseInt(thisfield.current)), maxVal);
+				$("#"+identifier).find(".gauge-value").text(Math.ceil(parseInt(thisfield.current)) + thisfield.unit);
+			}
+			
+			var parent	=	dataSource.dials.GPU.memory.used;	
+			var elem	=	parent;
+			if (typeof elem.canvId == 'undefined' || !elem.canvId){
+				generateCanvas(function(_canvId){
+					elem.canvId = _canvId;
+					var currVal		=	Math.round(parseInt(elem.current.replace(/\D/g,'')));
+					var maxVal	=	Math.round(parseInt(elem.max.replace(/\D/g,'')));
+					generateGauge(elem.blurb, maxVal, currVal, elem.unit, _canvId, function(_gauge){
+						gauges[_canvId] = _gauge;
+					});
+				});
+			} else {
+				var identifier	=	elem["canvId"];
+				var thisGauge	=	gauges[identifier];
+				var thisfield		=	dials.GPU.memory.used;
+
+				var currVal		=	Math.round(parseInt(elem.current.replace(/\D/g,'')));
+				var maxVal	=	Math.round(parseInt(elem.max.replace(/\D/g,'')));
+				thisGauge.refresh(Math.ceil(parseInt(thisfield.current)), maxVal);
+				$("#"+identifier).find(".gauge-value").text(Math.ceil(parseInt(thisfield.current)) + thisfield.unit);
+			}	
+				
+		});
+		
+		function appendProgress(){
+			component.progress.ring("progress-large", function(html){
+				$("body").append(html);
+			});
+		};
+		
+		function generateTimerButton(){
+			var buttons = [
+				{
+					type		:	"button",
+					text		:	"Start Polling 1000ms",
+					classes	:	"btn-primary",
+					attrs		:	[
+						{
+							name		:	"timerActive",
+							value		:	"false"
+						},
+					],
+					events	:	{
+						click	:	"if ($(this).attr('timerActive') == 'false' || !$(this).attr('timerActive')){ipcRenderer.send('windows.function.hardware.query', 1000); $(this).attr('timerActive', 'true'); $(this).text('Stop Polling');} else {ipcRenderer.send('windows.function.hardware.query', true); $(this).attr('timerActive', 'false'); $(this).text('Start Polling 1000ms');}"	//	Must be enclosed in double quotes with string in single quote
+					}
+				}
+			];
+			component.button(buttons, function(comp){
+				$("body").append("<div>"+comp+"</div>");
+			});
+		
+		
+		};
+		
+		
+		function twelveGauge(){
+			for (var i=0; i<11; i++){
+				generateCanvas(function(canvId, canv){
+					console.log(canvId);
+					console.log(canv);
+					$("body").append(canv);
+					generateGauge(canvId);
+				});
+			};
+		};
+		
+		
+		function appendButtons(){
+			var buttons = [
+				{
+					type		:	"button",
+					text		:	"Test btn 1",
+					classes	:	"btn-primary",
+					events	:	{
+						click	:	"alert('Hi!')"	//	Must be enclosed in double quotes with string in single quote
+					}
+				},
+				{
+					type		:	"button",
+					text		:	"Test btn 2",
+					classes	:	"btn-primary",
+					events	:	{
+						click	:	"alert('Hello World!')"	//	Must be enclosed in double quotes with string in single quote
+					}
+				},
+				{
+					type		:	"a",
+					text		:	"Test link 1 - Google",
+					href		:	"https://google.co.uk/",
+					classes	:	"btn-secondary",
+					events	:	{
+
+					}
+				},
+				{
+					type		:	"a",
+					text		:	"Test Link 2 - BBC",
+					href		:	"http://bbc.co.uk/",
+					classes	:	"btn-link",
+					events	:	{
+
+					}
+				}
+			];
+			component.button(buttons, function(comp){
+				$("body").append("<div>"+comp+"</div>");
+			});
+		};
+		
+		contextMenu.append(new MenuItem({
+			label		:	"Dev Console",
+			click(){functions.browser.showConsole()}
+		}));
+
+		
+		window.addEventListener('contextmenu', (e)=>{
+			e.preventDefault();
+			contextMenu.popup(remote.getCurrentWindow());
+		}, false);
+
+		//console.log(process.app);
+		// You can also require other files to run in this process
+		//require('./renderer.js')
+	</script>
+	
+	
+	<script>if (window.module) module = window.module;</script>
+</html>

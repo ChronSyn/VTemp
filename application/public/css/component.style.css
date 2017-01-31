@@ -1,0 +1,32 @@
+.canv{
+	margin-top: 0px;
+}
+
+.gaugeHolder{
+	float: left;
+	max-width: 40%;
+	margin: 5px;
+	border: 1px solid #f0f0f0;
+	height: 137px;
+	min-width: 300px;
+}
+
+.gaugeHolder .gauge-value{
+	position: relative;
+    top: 0px;
+    left: 0px;
+    font-size: 22px;
+    text-align: center;
+    width: 100% !important;
+    margin-top: -70px;
+}
+
+.gaugeHolder .gauge-blurb{
+    position: relative;
+    bottom: 0px;
+    left: 0px;
+    font-size: 15px;
+    text-align: center;
+    width: 100% !important;
+}
+

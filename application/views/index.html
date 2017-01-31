@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>VTemp 0.0.1</title>
+	</head>
+	<body>
+		<h1>Hello World!</h1>
+		<!-- All of the Node.js APIs are available in this renderer process. -->
+		We are using Node.js <script>document.write(process.versions.node)</script>,
+		Chromium <script>document.write(process.versions.chrome)</script>,
+		and Electron <script>document.write(process.versions.electron)</script>.
+		<br/>
+		<br/>
+		THIS IS A TEST!4454
+		
+		<br/>
+		<br/>
+		<a href="./test.html">This is a test</a>
+		
+		<br/>
+		<br/>
+		<button onclick="functions.winapi.sendNotification('Hello', 'World', function(){alert('Done!')});">Notification</button>
+		
+		<br/>
+		<br/>
+		<button onclick="functions.winapi.flashTaskbar();">Flash Taskbar</button>
+	</body>
+
+	<script src="../public/js/modules/functions.js"></script>
+	<script>
+		const	{
+						remote,
+						BrowserWindow,
+						app,
+						ipcRenderer,
+		}	=	require('electron');
+		
+		const	{
+						Menu,
+						MenuItem
+		}	=	remote;
+		const contextMenu	=	new Menu();
+
+		
+		
+		contextMenu.append(new MenuItem({
+			label		:	"Hi!",
+			click(){alert("Hello, world!")}
+		}));
+
+		
+		window.addEventListener('contextmenu', (e)=>{
+			e.preventDefault();
+			contextMenu.popup(remote.getCurrentWindow());
+		}, false);
+
+		//console.log(process.app);
+		// You can also require other files to run in this process
+		//require('./renderer.js')
+	</script>
+</html>
