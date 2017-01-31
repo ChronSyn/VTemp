@@ -18,3 +18,4 @@
 
 node_modules/* linguist-vendored
 application/public/* linguist-vendored
+application/views/* linguist-vendored
